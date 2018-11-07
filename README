@@ -1,0 +1,108 @@
+Buildbot для Джино
+==================
+
+1. Конфигурация позволяет
+----------------------
+- собирать различные версии ядра Linux для устройств на базе iMX6ULL
+- собирать КФС Debian (системный и установочный) для процессоров ARM (armhf)
+- управлять заданиями и процессом сборки через WEB-интерфейс
+- отправлять уведомления по e-mail
+- получать собранные образы с сервера по HTTP
+
+2. Требования
+-------------
+- OC Debian 9 / Ubuntu 16
+- buildbot (python3, pip, virtualenv, buildbot)
+- инструменты для сборки ядра (gcc,make,...)
+- инструменты для сборки КФС из ISO образа Debian (u-boot-tools) 
+- инструменты для сборки КФС через эмулятор ARM (qemu, debootstrap,...)
+
+Архитектура buildbot'а подразумевает запуск компонентов на отдельных машинах.
+В случае с сервером Джино вся работа выполняется на одной машине. 
+Тем не менее, инструменты и конфигурации подготовлены с расчетом на распределенную работу.
+
+3. Настройка
+------------
+- подготовить систему
+- клонировать репозиторий с конфигурацией buildbot
+- создать рабочую директорию buildbot
+- перенести конфиг из репозитория в buildbot
+- запустить мастера
+- запустить воркера/ов
+- передать команду на сборку через web-браузер 
+
+4. Пошаговая инсрукция
+----------------------
+
+Установка пакетов
+
+    apt update
+    apt install python3 python3-pip virtualenv wget git python bsdtar sed make binutils build-essential gcc g++ patch gzip  bzip2 perl tar cpio unzip rsync file bc bison flex libssl-dev u-boot-tools
+
+Получение конфигурационных файлов
+
+    git clone --single-branch -b jino <crust-ci-repo>
+
+Создание директории для buildbot
+
+    mkdir buildbot
+
+Подготовка окружения для buildbot 
+
+    virtualenv --python=python3 buildbot
+    source buildbot/bin/activate
+    pip install --upgrade pip
+    pip install 'buildbot[bundle]'
+
+
+Создание мастера и воркера(ов) 
+
+    buildbot create-master buildbot/master
+    buildbot-worker create-worker buildbot/armhf-linux localhost armhf-linux nopass
+    buildbot-worker create-worker buildbot/armhf-rootfs localhost armhf-rootfs nopass
+
+
+Запуск мастера и воркера(ов) 
+
+    cp crust-ci/master.cfg buildbot/master/
+    buildbot start buildbot/master
+    buildbot-worker start buildbot/armhf-linux
+    buildbot-worker start buildbot/armhf-rootfs
+
+Настройка автоматической загрузки через systemd (опционально)
+
+    cp crust-ci/buildbot*.service /etc/systemd/system/
+    systemctl daemon-reload 
+    systemctl enable buildbot-master buildbot-armhf-linux buildbot-armhf-rootfs
+    systemctl start buildbot-master buildbot-armhf-linux buildbot-armhf-rootfs
+
+Настройка NGINX (опционально)
+
+    apt install nginx
+    cp crust-ci/nginx.conf /etc/nginx/
+    systemctl enable nginx
+    systemctl start nginx
+
+5. Проверка
+-----------
+Открыть в браузере адрес http://<адрес сервера>:8010
+Убедиться, что воркер активен. Для этого перейти в Builds->Builders, выбрать активного воркера, 
+нажать кнопку Build и запустить сборку. После успешной сборки бинарные файлы ядра, загрузчика 
+и др. компонентов будут находиться в директории /output
+
+6. Проблемы
+-----------
+Самая распространённая проблема - buildbot не может получить доступ к репозиториям т.к.
+ключи шифрования отсутствуют/не добавлены в репозиторий
+Простой способ проверить - клонировать репозиторий вручную, зайдя под пользователем, 
+который запускает buildroot. В нашем случае это root
+
+    su
+    git clone $(grep -E 'CONFIG_REPO_KERNEL' master.cfg | head -1 | cut -d\' -f 2)
+    git clone $(grep -E 'CONFIG_REPO_ROOTFS' master.cfg | head -1 | cut -d\' -f 2)
+
+Если клонировать не удалось, то есть сл. пути решения:
+
+- добавить в систему ключи, известные репозиторию
+- добавить в репозиторий ключи из системы
+- перевести buildbot на другие репозитории, изменив параметры CONFIG_REPO_KERNEL, CONFIR_REPO_ROOTFS в master.cfg
