@@ -1,0 +1,72 @@
+Buildbot для Linux 4.14.y 
+=========================
+
+
+Требования
+----------
+
+- python3
+- pip
+- virtualenv
+Пакеты доступны через пакетный менеджер в любом популярном дистрибутиве
+
+
+Настройка
+---------
+
+- создать рабочую директорию buildbot
+- перенести конфиг из репозитория в buildbot
+- запустить мастреа
+- запустить воркера
+- передать команду на сборку через web-браузер / либо дождаться изменений в репозитории
+
+
+Пошаговая инструкция
+--------------------
+
+1. Создать папку для Buildbot
+
+        mkdir buildbot
+        cd buildbot
+
+2. Подготовить окружение
+
+        virtualenv .
+        source bin/activate
+        pip install --upgrade pip
+        pip install 'buildbot[bundle]'
+
+3. Запустить мастера
+
+
+        buildbot create-master master
+        cp ../master.cfg master
+        buildbot start master
+
+4. Запустить воркера
+
+        buildbot-worker create-worker worker localhost kworker nopass
+        buildbot-worker start worker
+
+
+Проверка
+--------------------
+
+Открыть в браузере адрес http://127.0.0.1:8010
+Убедиться, что воркер активен. Для этого перейти в Builds->Builders
+Выбрать активного воркера, нажать кнопку Command и запустить сборку
+После сборки бинарные файлы ядра, загрузчика и др. компонентов будут находиться в 
+директории: /tmp/crust-ci/linux-4.14.y
+
+
+Полезные ссылки
+--------------------
+
+http://docs.buildbot.net/current/
+
+https://www.python.org/
+
+https://pypi.org/project/pip/
+
+https://virtualenv.pypa.io/en/stable/
+
